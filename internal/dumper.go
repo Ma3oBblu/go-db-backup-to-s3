@@ -3,7 +3,7 @@ package internal
 import (
 	"bufio"
 	"fmt"
-	"go-db-backup-to-s3/config"
+	"go-db-backup-to-s3/cmd/config"
 	"io"
 	"log"
 	"os"
@@ -41,7 +41,7 @@ func (d *Dumper) generateBackupDate() string {
 
 // DumpDb дампит базу данных с помощью mysqldump в указанный файл backupFileFullPath
 func (d *Dumper) DumpDb() error {
-	backupFullPath := d.BackupConfig.Folder + d.BackupConfig.FileName + "." + d.generateBackupDate() + d.BackupConfig.BackupExtension
+	backupFullPath := d.BackupConfig.Folder + d.SqlConfig.Name + "." + d.generateBackupDate() + d.BackupConfig.BackupExtension
 
 	mysqlDumpExtras := ""
 	if d.SqlDumpConfig.IgnoreTable != "" {
@@ -52,11 +52,14 @@ func (d *Dumper) DumpDb() error {
 	}
 	cmd := exec.Command(
 		"mysqldump",
+		"-h"+d.SqlConfig.Host,
+		"-p"+d.SqlConfig.Port,
 		"-u"+d.SqlConfig.User,
 		"-p"+d.SqlConfig.Password,
 		d.SqlConfig.Name,
 		mysqlDumpExtras,
 	)
+	fmt.Printf("mysqldump:\n%s\n", cmd.String())
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
@@ -86,6 +89,6 @@ func (d *Dumper) DumpDb() error {
 	}
 
 	d.FileName = backupFullPath
-	fmt.Println("finish dump")
+	fmt.Printf("finish dump: %s\n", d.FileName)
 	return nil
 }

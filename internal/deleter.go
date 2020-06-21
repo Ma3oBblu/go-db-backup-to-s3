@@ -17,6 +17,6 @@ func NewDeleter() *Deleter {
 // DeleteFile удаляет файл
 func (d *Deleter) DeleteFile(fileToDelete string) error {
 	err := os.Remove(fileToDelete)
-	fmt.Printf("finish delete %s file", fileToDelete)
+	fmt.Printf("finish delete %s file\n", fileToDelete)
 	return err
 }

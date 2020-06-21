@@ -44,6 +44,6 @@ func (g *Gzipper) GzipFile(source string) error {
 	_, err = io.Copy(archiver, reader)
 
 	g.FileName = target
-	fmt.Println("finish gzip")
+	fmt.Printf("finish gzip %s\n", g.FileName)
 	return err
 }

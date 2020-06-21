@@ -7,11 +7,6 @@ dump:
   ignoreTable: "mysql.event"
   addDropTable: true
 
-db:
-  name: "db_name"
-  user: "db_username"
-  password: "db_password"
-
 s3:
   key: "s3_key"
   secret: "s3_secret"

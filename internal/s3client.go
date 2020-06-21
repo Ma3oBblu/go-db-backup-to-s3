@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"go-db-backup-to-s3/config"
+	"go-db-backup-to-s3/cmd/config"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +15,7 @@ import (
 )
 
 const AclPrivate = "private"
+const AclPublic = "public"
 
 // S3Client клиент для работы с S3
 type S3Client struct {
@@ -53,7 +54,7 @@ func (c *S3Client) generateS3FileName(backupS3Folder, source string) string {
 
 // UploadFile загружает файл на S3
 func (c *S3Client) UploadFile(fileName string, private bool) error {
-	privateMod := "public"
+	privateMod := AclPublic
 	if private == true {
 		privateMod = AclPrivate
 	}

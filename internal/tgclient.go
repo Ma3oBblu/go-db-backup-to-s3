@@ -3,7 +3,7 @@ package internal
 import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"go-db-backup-to-s3/config"
+	"go-db-backup-to-s3/cmd/config"
 	"log"
 )
 
@@ -22,7 +22,7 @@ func NewTgClient(
 	}
 	err := client.initBot()
 	if err != nil {
-		fmt.Printf("error on tg bot init: %s", err)
+		fmt.Printf("error on tg bot init: %s\n", err)
 	}
 	return client
 }

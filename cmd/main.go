@@ -3,14 +3,18 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/viper"
-	"go-db-backup-to-s3/config"
+	"go-db-backup-to-s3/cmd/config"
 	"go-db-backup-to-s3/internal"
+	"os"
+	"strings"
 	"time"
 )
 
 // initMysqlConfig инициализирует конфиг MySQL
 func initMysqlConfig() *config.MySql {
 	return config.NewMySql(
+		viper.GetString("db.host"),
+		viper.GetInt("db.port"),
 		viper.GetString("db.name"),
 		viper.GetString("db.user"),
 		viper.GetString("db.password"),
@@ -29,8 +33,7 @@ func initMysqlDumpConfig() *config.MySqlDump {
 func initBackupConfig() *config.Backup {
 	return config.NewBackup(
 		viper.GetString("backup.folder"),
-		viper.GetString("backup.fileName"),
-		viper.GetString("backup.fileExtension"),
+		viper.GetString("backup.backupExtension"),
 	)
 }
 
@@ -60,53 +63,78 @@ func initTelegramConfig() *config.Telegram {
 }
 
 func main() {
-	viper.AddConfigPath("./config/")
+	viper.AddConfigPath("./cmd/config/")
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	err := viper.ReadInConfig()
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("error reading configs: %s\n", err)
 	}
-	mysqlConfig := initMysqlConfig()
+
 	mysqlDumpConfig := initMysqlDumpConfig()
 	backupConfig := initBackupConfig()
 	s3config := initS3Config()
 	telegramConfig := initTelegramConfig()
 
-	dumper := internal.NewDumper(backupConfig, mysqlDumpConfig, mysqlConfig)
-	err = dumper.DumpDb()
+	dir, err := os.Open("./cmd/config/databases") // читаем текущий путь
 	if err != nil {
-		fmt.Printf("error in dumper: %s", err)
+		fmt.Printf("error opening dir: %s\n", err)
+	}
+	defer dir.Close()
+
+	fileInfos, err := dir.Readdir(-1) // читаем текущую директорию
+	if err != nil {
+		fmt.Printf("error reading dir: %s\n", err)
 	}
 
-	gzipper := internal.NewGzipper()
-	err = gzipper.GzipFile(dumper.FileName)
-	if err != nil {
-		fmt.Printf("error while gzip file: %s", err)
-	}
+	for _, fileInfo := range fileInfos {
+		if fileInfo.Name() != "db-config-example.yaml" {
+			fmt.Println(fileInfo.Name())
+			file := strings.Split(fileInfo.Name(), ".")
+			viper.AddConfigPath("./cmd/config/databases")
+			viper.SetConfigName(file[0])
+			viper.SetConfigType("yaml")
+			err := viper.ReadInConfig()
+			if err != nil {
+				fmt.Printf("error reading db config: %s\n%s\n", fileInfo.Name(), err)
+			}
+			mysqlConfig := initMysqlConfig()
+			dumper := internal.NewDumper(backupConfig, mysqlDumpConfig, mysqlConfig)
+			err = dumper.DumpDb()
+			if err != nil {
+				fmt.Printf("error in dumper: %s\n", err)
+			}
 
-	deleter := internal.NewDeleter()
-	err = deleter.DeleteFile(dumper.FileName)
-	if err != nil {
-		fmt.Printf("error while delete file: %s", err)
-	}
+			gzipper := internal.NewGzipper()
+			err = gzipper.GzipFile(dumper.FileName)
+			if err != nil {
+				fmt.Printf("error while gzip file: %s\n", err)
+			}
 
-	s3client := internal.NewS3Client(s3config)
-	err = s3client.UploadFile(gzipper.FileName, true)
-	if err != nil {
-		fmt.Printf("error while uploading file to S3: %s", err)
-	}
+			deleter := internal.NewDeleter()
+			err = deleter.DeleteFile(dumper.FileName)
+			if err != nil {
+				fmt.Printf("error while delete file: %s\n", err)
+			}
 
-	err = deleter.DeleteFile(gzipper.FileName)
-	if err != nil {
-		fmt.Printf("error while deleting gz file: %s", err)
-	}
+			s3client := internal.NewS3Client(s3config)
+			err = s3client.UploadFile(gzipper.FileName, true)
+			if err != nil {
+				fmt.Printf("error while uploading file to S3: %s\n", err)
+			}
 
-	presignLink, err := s3client.GetPresignLink(gzipper.FileName, 24*time.Hour)
-	if err != nil {
-		fmt.Printf("error while generating presign link: %s", err)
-	}
+			err = deleter.DeleteFile(gzipper.FileName)
+			if err != nil {
+				fmt.Printf("error while deleting gz file: %s\n", err)
+			}
 
-	tgClient := internal.NewTgClient(telegramConfig)
-	tgClient.SendDbBackupFinishMessage(mysqlConfig.Name, presignLink)
+			presignLink, err := s3client.GetPresignLink(gzipper.FileName, 24*time.Hour)
+			if err != nil {
+				fmt.Printf("error while generating presign link: %s\n", err)
+			}
+
+			tgClient := internal.NewTgClient(telegramConfig)
+			tgClient.SendDbBackupFinishMessage(mysqlConfig.Name, presignLink)
+		}
+	}
 }
