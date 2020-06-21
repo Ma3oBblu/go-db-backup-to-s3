@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -9,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"go-db-backup-to-s3/config"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"strconv"
@@ -107,8 +109,27 @@ func main() {
 		mysqlConfig.Name,
 		mysqlDumpExtras,
 	)
-	err = cmd.Run()
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println(err)
+		log.Fatal(err)
 	}
+
+	outfile, err := os.Create(backupFullPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer outfile.Close()
+
+	// start the command after having set up the pipe
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
+
+	// read command's stdout line by line
+	in := bufio.NewWriter(outfile)
+	defer in.Flush()
+
+	io.Copy(outfile, stdout)
+
+	fmt.Println("finished")
 }
