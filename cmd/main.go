@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
@@ -12,6 +13,7 @@ import (
 	"go-db-backup-to-s3/config"
 	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,6 +202,18 @@ func main() {
 
 	fmt.Println("finish delete file")
 
+	file, err := os.Open(backupGzipFullPath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer file.Close()
+
+	// Get file size and read the file content into a buffer
+	fileInfo, _ := file.Stat()
+	size := fileInfo.Size()
+	buffer := make([]byte, size)
+	file.Read(buffer)
+
 	newSession := session.New(&aws.Config{
 		Credentials: credentials.NewStaticCredentials(s3config.Key, s3config.Secret, ""),
 		Endpoint:    aws.String(s3config.Endpoint),
@@ -208,10 +222,12 @@ func main() {
 	s3Client := s3.New(newSession)
 
 	object := s3.PutObjectInput{
-		Bucket: aws.String(s3config.Bucket),
-		Key:    aws.String("backup/test.sql.gz"),
-		Body:   strings.NewReader(backupGzipFullPath),
-		ACL:    aws.String("private"),
+		Bucket:        aws.String(s3config.Bucket),
+		Key:           aws.String("backup/test.sql.gz"),
+		Body:          bytes.NewReader(buffer),
+		ContentLength: aws.Int64(size),
+		ContentType:   aws.String(http.DetectContentType(buffer)),
+		ACL:           aws.String("private"),
 	}
 	_, err = s3Client.PutObject(&object)
 	if err != nil {
