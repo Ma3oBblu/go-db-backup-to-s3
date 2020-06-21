@@ -6,4 +6,6 @@
 
 - [DigitalOcean examples for S3](https://www.digitalocean.com/docs/spaces/resources/s3-sdk-examples/)
 
-- [Simple lib to parse environment variables to structs](https://github.com/caarlos0/env)
+- [Working with yaml configs - Viper](https://github.com/spf13/viper)
+
+- [Working with Telegram API](https://github.com/go-telegram-bot-api/telegram-bot-api)
