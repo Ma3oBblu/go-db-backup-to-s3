@@ -100,7 +100,7 @@ func initS3Config() *config.S3 {
 		viper.GetString("s3.region"),
 		viper.GetString("s3.bucket"),
 		viper.GetString("s3.endpoint"),
-		viper.GetString("s4.backupFolder"),
+		viper.GetString("s3.backupFolder"),
 	)
 }
 
@@ -190,7 +190,9 @@ func main() {
 	in := bufio.NewWriter(outfile)
 	defer in.Flush()
 
-	io.Copy(outfile, stdout)
+	if _, err := io.Copy(outfile, stdout); err != nil {
+		log.Fatal(err)
+	}
 
 	fmt.Println("finish dumping")
 
@@ -242,4 +244,13 @@ func main() {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
+
+	fmt.Println("finish upload")
+
+	err = deleteFile(backupGzipFullPath)
+	if err != nil {
+		fmt.Println("error while delete file")
+	}
+
+	fmt.Println("finish delete gzip file")
 }
