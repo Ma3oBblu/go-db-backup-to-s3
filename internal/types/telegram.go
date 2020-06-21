@@ -1,4 +1,4 @@
-package config
+package types
 
 // Telegram конфиг для телеграм бота
 type Telegram struct {

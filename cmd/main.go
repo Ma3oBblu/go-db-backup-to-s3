@@ -3,18 +3,18 @@ package main
 import (
 	"fmt"
 	"github.com/spf13/viper"
-	"go-db-backup-to-s3/cmd/config"
 	"go-db-backup-to-s3/internal"
+	"go-db-backup-to-s3/internal/types"
 	"os"
 	"strings"
 	"time"
 )
 
 // initMysqlConfig инициализирует конфиг MySQL
-func initMysqlConfig() *config.MySql {
-	return config.NewMySql(
+func initMysqlConfig() *types.MySql {
+	return types.NewMySql(
 		viper.GetString("db.host"),
-		viper.GetInt("db.port"),
+		viper.GetString("db.port"),
 		viper.GetString("db.name"),
 		viper.GetString("db.user"),
 		viper.GetString("db.password"),
@@ -22,24 +22,24 @@ func initMysqlConfig() *config.MySql {
 }
 
 // initMysqlDumpConfig инициализирует конфиг mysqldump
-func initMysqlDumpConfig() *config.MySqlDump {
-	return config.NewMySqlDump(
+func initMysqlDumpConfig() *types.MySqlDump {
+	return types.NewMySqlDump(
 		viper.GetString("dump.ignoreTable"),
 		viper.GetBool("dump.addDropTable"),
 	)
 }
 
 // initBackupConfig инициализирует конфиг для бекапа
-func initBackupConfig() *config.Backup {
-	return config.NewBackup(
+func initBackupConfig() *types.Backup {
+	return types.NewBackup(
 		viper.GetString("backup.folder"),
 		viper.GetString("backup.backupExtension"),
 	)
 }
 
 // initS3Config инициализирует конфиг S3
-func initS3Config() *config.S3 {
-	return config.NewS3(
+func initS3Config() *types.S3 {
+	return types.NewS3(
 		viper.GetString("s3.key"),
 		viper.GetString("s3.secret"),
 		viper.GetString("s3.region"),
@@ -50,13 +50,13 @@ func initS3Config() *config.S3 {
 }
 
 // initTelegramConfig инициализирует конфиг Telegram
-func initTelegramConfig() *config.Telegram {
+func initTelegramConfig() *types.Telegram {
 	chatIdsFromConfig := viper.GetIntSlice("telegram.chatIds")
 	chatIds := make([]int64, 0, len(chatIdsFromConfig))
 	for _, chatId := range chatIdsFromConfig {
 		chatIds = append(chatIds, int64(chatId))
 	}
-	return config.NewTelegramConfig(
+	return types.NewTelegramConfig(
 		viper.GetString("telegram.apiToken"),
 		chatIds,
 	)

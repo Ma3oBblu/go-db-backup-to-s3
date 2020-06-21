@@ -1,4 +1,4 @@
-package config
+package types
 
 // MySql конфиг для подключения к MySQL базе
 type MySql struct {

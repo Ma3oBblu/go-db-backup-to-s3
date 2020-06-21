@@ -1,4 +1,4 @@
-package config
+package types
 
 // MySqlDump конфиг для mysqldump
 type MySqlDump struct {

@@ -6,7 +6,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"go-db-backup-to-s3/cmd/config"
+	"go-db-backup-to-s3/internal/types"
 	"log"
 	"net/http"
 	"os"
@@ -19,13 +19,13 @@ const AclPublic = "public"
 
 // S3Client клиент для работы с S3
 type S3Client struct {
-	Config *config.S3
+	Config *types.S3
 	Client *s3.S3
 }
 
 // NewS3Client конструктор
 func NewS3Client(
-	config *config.S3,
+	config *types.S3,
 ) *S3Client {
 	client := &S3Client{
 		Config: config,

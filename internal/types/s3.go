@@ -1,4 +1,4 @@
-package config
+package types
 
 // S3 конфиг для подключения к S3 хранилищу
 type S3 struct {

@@ -1,4 +1,4 @@
-package config
+package types
 
 // Backup конфиг для бекапа
 type Backup struct {

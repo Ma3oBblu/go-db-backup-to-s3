@@ -1,4 +1,5 @@
 .idea
+.git
 /vendor
 cmd/config/config.yaml
 cmd/config/databases/*.yaml

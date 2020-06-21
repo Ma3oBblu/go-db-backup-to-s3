@@ -3,19 +3,19 @@ package internal
 import (
 	"fmt"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
-	"go-db-backup-to-s3/cmd/config"
+	"go-db-backup-to-s3/internal/types"
 	"log"
 )
 
 // TgClient клиент для телеграм бота
 type TgClient struct {
-	config *config.Telegram
+	config *types.Telegram
 	bot    *tgbotapi.BotAPI
 }
 
 // NewTgClient конструктор
 func NewTgClient(
-	config *config.Telegram,
+	config *types.Telegram,
 ) *TgClient {
 	client := &TgClient{
 		config: config,

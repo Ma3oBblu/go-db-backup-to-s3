@@ -3,7 +3,7 @@ package internal
 import (
 	"bufio"
 	"fmt"
-	"go-db-backup-to-s3/cmd/config"
+	"go-db-backup-to-s3/internal/types"
 	"io"
 	"log"
 	"os"
@@ -14,17 +14,17 @@ import (
 
 // Dumper дампер БД с помощью mysqldump
 type Dumper struct {
-	BackupConfig  *config.Backup
-	SqlDumpConfig *config.MySqlDump
-	SqlConfig     *config.MySql
+	BackupConfig  *types.Backup
+	SqlDumpConfig *types.MySqlDump
+	SqlConfig     *types.MySql
 	FileName      string
 }
 
 // NewDumper конструктор
 func NewDumper(
-	backupConfig *config.Backup,
-	sqlDumpConfig *config.MySqlDump,
-	sqlConfig *config.MySql,
+	backupConfig *types.Backup,
+	sqlDumpConfig *types.MySqlDump,
+	sqlConfig *types.MySql,
 ) *Dumper {
 	return &Dumper{
 		BackupConfig:  backupConfig,
