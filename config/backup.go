@@ -2,16 +2,18 @@ package config
 
 // Backup конфиг для бекапа
 type Backup struct {
-	Folder    string
-	Name      string
-	Extension string
+	Folder          string
+	FileName        string
+	BackupExtension string
+	GzipExtension   string
 }
 
 // NewBackup конструктор
-func NewBackup(folder string, name string, extension string) *Backup {
+func NewBackup(folder string, fileName string, backupExtension string, gzipExtension string) *Backup {
 	return &Backup{
-		Folder:    folder,
-		Name:      name,
-		Extension: extension,
+		Folder:          folder,
+		FileName:        fileName,
+		BackupExtension: backupExtension,
+		GzipExtension:   gzipExtension,
 	}
 }

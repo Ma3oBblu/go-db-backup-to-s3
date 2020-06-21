@@ -20,9 +20,6 @@ import (
 	"time"
 )
 
-const openFileOptions = os.O_CREATE | os.O_RDWR
-const openFilePermissions os.FileMode = 0660
-
 func doExample() {
 	key := os.Getenv("SPACES_KEY")
 	secret := os.Getenv("SPACES_SECRET")
@@ -68,17 +65,40 @@ func doExample() {
 
 // initMysqlConfig инициализирует конфиг MySQL
 func initMysqlConfig() *config.MySql {
-	return config.NewMySql(viper.GetString("db.name"), viper.GetString("db.user"), viper.GetString("db.password"))
+	return config.NewMySql(
+		viper.GetString("db.name"),
+		viper.GetString("db.user"),
+		viper.GetString("db.password"),
+	)
 }
 
 // initMysqlDumpConfig инициализирует конфиг mysqldump
 func initMysqlDumpConfig() *config.MySqlDump {
-	return config.NewMySqlDump(viper.GetString("dump.ignoreTable"), viper.GetBool("dump.addDropTable"))
+	return config.NewMySqlDump(
+		viper.GetString("dump.ignoreTable"),
+		viper.GetBool("dump.addDropTable"),
+	)
 }
 
 // initMysqlDumpConfig инициализирует конфиг mysqldump
 func initBackupConfig() *config.Backup {
-	return config.NewBackup(viper.GetString("backup.folder"), viper.GetString("backup.name"), viper.GetString("backup.extension"))
+	return config.NewBackup(
+		viper.GetString("backup.folder"),
+		viper.GetString("backup.fileName"),
+		viper.GetString("backup.fileExtension"),
+		viper.GetString("backup.gzipExtension"),
+	)
+}
+
+// initS3Config инициализирует конфиг S3
+func initS3Config() *config.S3 {
+	return config.NewS3(
+		viper.GetString("s3.key"),
+		viper.GetString("s3.secret"),
+		viper.GetString("s3.region"),
+		viper.GetString("s3.bucket"),
+		viper.GetString("s3.endpoint"),
+	)
 }
 
 // generateBackupDate генерирует дату бекапа
@@ -88,14 +108,14 @@ func generateBackupDate() string {
 }
 
 // gzipFile сжимает файл в архив
-func gzipFile(source, target string) error {
+func gzipFile(source, gzipExtension string) error {
 	reader, err := os.Open(source)
 	if err != nil {
 		return err
 	}
 
 	filename := filepath.Base(source)
-	target = filepath.Join(target, fmt.Sprintf("%s.gz", filename))
+	target := source + gzipExtension
 	writer, err := os.Create(target)
 	if err != nil {
 		return err
@@ -127,9 +147,11 @@ func main() {
 	mysqlConfig := initMysqlConfig()
 	mysqlDumpConfig := initMysqlDumpConfig()
 	backupConfig := initBackupConfig()
+	s3config := initS3Config()
 
 	backupDate := generateBackupDate()
-	backupFullPath := backupConfig.Folder + backupConfig.Name + "." + backupDate + backupConfig.Extension
+	backupFullPath := backupConfig.Folder + backupConfig.FileName + "." + backupDate + backupConfig.BackupExtension
+	backupGzipFullPath := backupFullPath + backupConfig.GzipExtension
 	fmt.Println(backupFullPath)
 
 	mysqlDumpExtras := "--ignore-table=" + mysqlDumpConfig.IgnoreTable + " --add-drop-table"
@@ -164,7 +186,7 @@ func main() {
 
 	fmt.Println("finish dumping")
 
-	err = gzipFile(backupFullPath, "/var/www/backups/gzipped")
+	err = gzipFile(backupFullPath, backupConfig.GzipExtension)
 	if err != nil {
 		fmt.Println("error while gzip file")
 	}
@@ -177,4 +199,22 @@ func main() {
 	}
 
 	fmt.Println("finish delete file")
+
+	newSession := session.New(&aws.Config{
+		Credentials: credentials.NewStaticCredentials(s3config.Key, s3config.Secret, ""),
+		Endpoint:    aws.String(s3config.Endpoint),
+		Region:      aws.String("us-east-1"),
+	})
+	s3Client := s3.New(newSession)
+
+	object := s3.PutObjectInput{
+		Bucket: aws.String(s3config.Bucket),
+		Key:    aws.String("backup/test.sql.gz"),
+		Body:   strings.NewReader(backupGzipFullPath),
+		ACL:    aws.String("private"),
+	}
+	_, err = s3Client.PutObject(&object)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 }

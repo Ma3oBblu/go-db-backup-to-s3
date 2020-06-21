@@ -8,7 +8,7 @@ type MySql struct {
 }
 
 // NewMySql конструктор
-func NewMySql(name string, user string, password string) *MySql {
+func NewMySql(name, user, password string) *MySql {
 	return &MySql{
 		Name:     name,
 		User:     user,

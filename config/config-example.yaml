@@ -1,7 +1,8 @@
 backup:
   folder: "/var/www/backups/"
-  name: "backup_name"
-  extension: ".sql.gz"
+  fileName: "backup_name"
+  backupExtension: ".sql"
+  gzipExtension: ".gz"
 
 dump:
   ignoreTable: "mysql.event"
@@ -11,3 +12,10 @@ db:
   name: "db_name"
   user: "db_username"
   password: "db_password"
+
+s3:
+  key: "s3_key"
+  secret: "s3_secret"
+  region: "s3_region"
+  bucket: "s3_bucket"
+  endpoint: "s3_endpoint"
