@@ -1,0 +1,13 @@
+backup:
+  folder: "/var/www/backups/"
+  name: "backup_name"
+  extension: ".sql.gz"
+
+dump:
+  ignoreTable: "mysql.event"
+  addDropTable: true
+
+db:
+  name: "db_name"
+  user: "db_username"
+  password: "db_password"

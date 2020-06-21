@@ -6,12 +6,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/spf13/viper"
+	"go-db-backup-to-s3/config"
 	"io"
 	"os"
+	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
 
-func main() {
+func doExample() {
 	key := os.Getenv("SPACES_KEY")
 	secret := os.Getenv("SPACES_SECRET")
 
@@ -51,5 +56,59 @@ func main() {
 	_, err = io.Copy(out, result.Body)
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+}
+
+// initMysqlConfig инициализирует конфиг MySQL
+func initMysqlConfig() *config.MySql {
+	return config.NewMySql(viper.GetString("db.name"), viper.GetString("db.user"), viper.GetString("db.password"))
+}
+
+// initMysqlDumpConfig инициализирует конфиг mysqldump
+func initMysqlDumpConfig() *config.MySqlDump {
+	return config.NewMySqlDump(viper.GetString("dump.ignoreTable"), viper.GetBool("dump.addDropTable"))
+}
+
+// initMysqlDumpConfig инициализирует конфиг mysqldump
+func initBackupConfig() *config.Backup {
+	return config.NewBackup(viper.GetString("backup.folder"), viper.GetString("backup.name"), viper.GetString("backup.extension"))
+}
+
+// generateBackupDate генерирует дату бекапа
+func generateBackupDate() string {
+	dt := time.Now()
+	return strconv.Itoa(dt.Year()) + "-" + dt.Weekday().String()
+}
+
+func main() {
+	viper.AddConfigPath("./config/")
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	err := viper.ReadInConfig()
+	if err != nil {
+		fmt.Println(err)
+	}
+	mysqlConfig := initMysqlConfig()
+	mysqlDumpConfig := initMysqlDumpConfig()
+	backupConfig := initBackupConfig()
+
+	backupDate := generateBackupDate()
+	backupPath := backupConfig.Folder
+	backupName := backupConfig.Name
+	backupExt := backupConfig.Extension
+	backupFullPath := backupPath + backupName + "." + backupDate + backupExt
+	fmt.Println(backupFullPath)
+
+	mysqlDumpExtras := "--ignore-table=" + mysqlDumpConfig.IgnoreTable + " --add-drop-table"
+	cmd := exec.Command(
+		"mysqldump",
+		"-u"+mysqlConfig.User,
+		"-p"+mysqlConfig.Password,
+		mysqlConfig.Name,
+		mysqlDumpExtras,
+	)
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
 	}
 }
