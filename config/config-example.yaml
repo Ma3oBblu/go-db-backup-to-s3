@@ -20,3 +20,7 @@ s3:
   bucket: "s3_bucket"
   endpoint: "s3_endpoint"
   backupFolder: "backups/"
+
+telegram:
+  apiToken: "api_token_from_bot_father"
+  chatIds: [1, 2, 3]

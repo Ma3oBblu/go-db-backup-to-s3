@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/spf13/viper"
 	"go-db-backup-to-s3/config"
 	"io"
@@ -104,6 +105,19 @@ func initS3Config() *config.S3 {
 	)
 }
 
+// initTelegramConfig инициализирует конфиг Telegram
+func initTelegramConfig() *config.Telegram {
+	chatIdsFromConfig := viper.GetIntSlice("telegram.chatIds")
+	chatIds := make([]int64, 0, len(chatIdsFromConfig))
+	for _, chatId := range chatIdsFromConfig {
+		chatIds = append(chatIds, int64(chatId))
+	}
+	return config.NewTelegramConfig(
+		viper.GetString("telegram.apiToken"),
+		chatIds,
+	)
+}
+
 // generateBackupDate генерирует дату бекапа
 func generateBackupDate() string {
 	dt := time.Now()
@@ -156,6 +170,7 @@ func main() {
 	mysqlDumpConfig := initMysqlDumpConfig()
 	backupConfig := initBackupConfig()
 	s3config := initS3Config()
+	telegramConfig := initTelegramConfig()
 
 	backupDate := generateBackupDate()
 	backupFullPath := backupConfig.Folder + backupConfig.FileName + "." + backupDate + backupConfig.BackupExtension
@@ -253,4 +268,23 @@ func main() {
 	}
 
 	fmt.Println("finish delete gzip file")
+
+	req, _ := s3Client.GetObjectRequest(&s3.GetObjectInput{
+		Bucket: aws.String(s3config.Bucket),
+		Key:    aws.String(generateS3FileName(s3config.BackupFolder, backupGzipFullPath)),
+	})
+
+	urlStr, err := req.Presign(24 * time.Hour)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	fmt.Println(telegramConfig.ChatIds)
+	bot, err := tgbotapi.NewBotAPI(telegramConfig.ApiToken)
+	if err != nil {
+		log.Panic(err)
+	}
+	for _, chatId := range telegramConfig.ChatIds {
+		msg := tgbotapi.NewMessage(chatId, "db backup of "+mysqlConfig.Name+" finished\nDownload file:\n"+urlStr)
+		_, _ = bot.Send(msg)
+	}
 }
