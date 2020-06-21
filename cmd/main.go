@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-const openFileOptions int = os.O_CREATE | os.O_RDWR
+const openFileOptions = os.O_CREATE | os.O_RDWR
 const openFilePermissions os.FileMode = 0660
 
 func doExample() {
@@ -110,6 +110,12 @@ func gzipFile(source, target string) error {
 	return err
 }
 
+// deleteFile удаляет файл
+func deleteFile(source string) error {
+	err := os.Remove(source)
+	return err
+}
+
 func main() {
 	viper.AddConfigPath("./config/")
 	viper.SetConfigName("config")
@@ -158,7 +164,17 @@ func main() {
 
 	fmt.Println("finish dumping")
 
-	gzipFile(backupFullPath, "/var/www/backups/gzipped")
+	err = gzipFile(backupFullPath, "/var/www/backups/gzipped")
+	if err != nil {
+		fmt.Println("error while gzip file")
+	}
 
 	fmt.Println("finish gzip")
+
+	err = deleteFile(backupFullPath)
+	if err != nil {
+		fmt.Println("error while delete file")
+	}
+
+	fmt.Println("finish delete file")
 }
