@@ -100,6 +100,7 @@ func initS3Config() *config.S3 {
 		viper.GetString("s3.region"),
 		viper.GetString("s3.bucket"),
 		viper.GetString("s3.endpoint"),
+		viper.GetString("s4.backupFolder"),
 	)
 }
 
@@ -136,6 +137,11 @@ func gzipFile(source, gzipExtension string) error {
 func deleteFile(source string) error {
 	err := os.Remove(source)
 	return err
+}
+
+// generateS3FileName генерирует путь и название файла для S3
+func generateS3FileName(backupS3Folder, source string) string {
+	return backupS3Folder + filepath.Base(source)
 }
 
 func main() {
@@ -202,6 +208,16 @@ func main() {
 
 	fmt.Println("finish delete file")
 
+	newSession, err := session.NewSession(&aws.Config{
+		Credentials: credentials.NewStaticCredentials(s3config.Key, s3config.Secret, ""),
+		Endpoint:    aws.String(s3config.Endpoint),
+		Region:      aws.String("us-east-1"),
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	s3Client := s3.New(newSession)
+
 	file, err := os.Open(backupGzipFullPath)
 	if err != nil {
 		fmt.Println(err)
@@ -212,18 +228,11 @@ func main() {
 	fileInfo, _ := file.Stat()
 	size := fileInfo.Size()
 	buffer := make([]byte, size)
-	file.Read(buffer)
-
-	newSession := session.New(&aws.Config{
-		Credentials: credentials.NewStaticCredentials(s3config.Key, s3config.Secret, ""),
-		Endpoint:    aws.String(s3config.Endpoint),
-		Region:      aws.String("us-east-1"),
-	})
-	s3Client := s3.New(newSession)
+	_, _ = file.Read(buffer)
 
 	object := s3.PutObjectInput{
 		Bucket:        aws.String(s3config.Bucket),
-		Key:           aws.String("backup/test.sql.gz"),
+		Key:           aws.String(generateS3FileName(s3config.BackupFolder, backupGzipFullPath)),
 		Body:          bytes.NewReader(buffer),
 		ContentLength: aws.Int64(size),
 		ContentType:   aws.String(http.DetectContentType(buffer)),

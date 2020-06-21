@@ -19,3 +19,4 @@ s3:
   region: "s3_region"
   bucket: "s3_bucket"
   endpoint: "s3_endpoint"
+  backupFolder: "backups/"
