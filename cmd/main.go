@@ -1,24 +1,10 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"compress/gzip"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api"
 	"github.com/spf13/viper"
 	"go-db-backup-to-s3/config"
-	"io"
-	"log"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
+	"go-db-backup-to-s3/internal"
 	"time"
 )
 
@@ -45,7 +31,6 @@ func initBackupConfig() *config.Backup {
 		viper.GetString("backup.folder"),
 		viper.GetString("backup.fileName"),
 		viper.GetString("backup.fileExtension"),
-		viper.GetString("backup.gzipExtension"),
 	)
 }
 
@@ -74,46 +59,6 @@ func initTelegramConfig() *config.Telegram {
 	)
 }
 
-// generateBackupDate генерирует дату бекапа
-func generateBackupDate() string {
-	dt := time.Now()
-	return strconv.Itoa(dt.Year()) + "-" + dt.Weekday().String()
-}
-
-// gzipFile сжимает файл в архив
-func gzipFile(source, gzipExtension string) error {
-	reader, err := os.Open(source)
-	if err != nil {
-		return err
-	}
-
-	filename := filepath.Base(source)
-	target := source + gzipExtension
-	writer, err := os.Create(target)
-	if err != nil {
-		return err
-	}
-	defer writer.Close()
-
-	archiver := gzip.NewWriter(writer)
-	archiver.Name = filename
-	defer archiver.Close()
-
-	_, err = io.Copy(archiver, reader)
-	return err
-}
-
-// deleteFile удаляет файл
-func deleteFile(source string) error {
-	err := os.Remove(source)
-	return err
-}
-
-// generateS3FileName генерирует путь и название файла для S3
-func generateS3FileName(backupS3Folder, source string) string {
-	return backupS3Folder + filepath.Base(source)
-}
-
 func main() {
 	viper.AddConfigPath("./config/")
 	viper.SetConfigName("config")
@@ -128,119 +73,40 @@ func main() {
 	s3config := initS3Config()
 	telegramConfig := initTelegramConfig()
 
-	backupDate := generateBackupDate()
-	backupFullPath := backupConfig.Folder + backupConfig.FileName + "." + backupDate + backupConfig.BackupExtension
-	backupGzipFullPath := backupFullPath + backupConfig.GzipExtension
-	fmt.Println(backupFullPath)
-
-	mysqlDumpExtras := "--ignore-table=" + mysqlDumpConfig.IgnoreTable + " --add-drop-table"
-	cmd := exec.Command(
-		"mysqldump",
-		"-u"+mysqlConfig.User,
-		"-p"+mysqlConfig.Password,
-		mysqlConfig.Name,
-		mysqlDumpExtras,
-	)
-	stdout, err := cmd.StdoutPipe()
+	dumper := internal.NewDumper(backupConfig, mysqlDumpConfig, mysqlConfig)
+	err = dumper.DumpDb()
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("error in dumper: %s", err)
 	}
 
-	outfile, err := os.Create(backupFullPath)
+	gzipper := internal.NewGzipper()
+	err = gzipper.GzipFile(dumper.FileName)
 	if err != nil {
-		log.Fatal(err)
-	}
-	defer outfile.Close()
-
-	// start the command after having set up the pipe
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
+		fmt.Printf("error while gzip file: %s", err)
 	}
 
-	// read command's stdout line by line
-	in := bufio.NewWriter(outfile)
-	defer in.Flush()
-
-	if _, err := io.Copy(outfile, stdout); err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("finish dumping")
-
-	err = gzipFile(backupFullPath, backupConfig.GzipExtension)
+	deleter := internal.NewDeleter()
+	err = deleter.DeleteFile(dumper.FileName)
 	if err != nil {
-		fmt.Println("error while gzip file")
+		fmt.Printf("error while delete file: %s", err)
 	}
 
-	fmt.Println("finish gzip")
-
-	err = deleteFile(backupFullPath)
+	s3client := internal.NewS3Client(s3config)
+	err = s3client.UploadFile(gzipper.FileName, true)
 	if err != nil {
-		fmt.Println("error while delete file")
+		fmt.Printf("error while uploading file to S3: %s", err)
 	}
 
-	fmt.Println("finish delete file")
-
-	newSession, err := session.NewSession(&aws.Config{
-		Credentials: credentials.NewStaticCredentials(s3config.Key, s3config.Secret, ""),
-		Endpoint:    aws.String(s3config.Endpoint),
-		Region:      aws.String("us-east-1"),
-	})
+	err = deleter.DeleteFile(gzipper.FileName)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Printf("error while deleting gz file: %s", err)
 	}
-	s3Client := s3.New(newSession)
 
-	file, err := os.Open(backupGzipFullPath)
+	presignLink, err := s3client.GetPresignLink(gzipper.FileName, 24*time.Hour)
 	if err != nil {
-		fmt.Println(err)
-	}
-	defer file.Close()
-
-	// Get file size and read the file content into a buffer
-	fileInfo, _ := file.Stat()
-	size := fileInfo.Size()
-	buffer := make([]byte, size)
-	_, _ = file.Read(buffer)
-
-	object := s3.PutObjectInput{
-		Bucket:        aws.String(s3config.Bucket),
-		Key:           aws.String(generateS3FileName(s3config.BackupFolder, backupGzipFullPath)),
-		Body:          bytes.NewReader(buffer),
-		ContentLength: aws.Int64(size),
-		ContentType:   aws.String(http.DetectContentType(buffer)),
-		ACL:           aws.String("private"),
-	}
-	_, err = s3Client.PutObject(&object)
-	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Printf("error while generating presign link: %s", err)
 	}
 
-	fmt.Println("finish upload")
-
-	err = deleteFile(backupGzipFullPath)
-	if err != nil {
-		fmt.Println("error while delete file")
-	}
-
-	fmt.Println("finish delete gzip file")
-
-	req, _ := s3Client.GetObjectRequest(&s3.GetObjectInput{
-		Bucket: aws.String(s3config.Bucket),
-		Key:    aws.String(generateS3FileName(s3config.BackupFolder, backupGzipFullPath)),
-	})
-
-	urlStr, err := req.Presign(24 * time.Hour)
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-	fmt.Println(telegramConfig.ChatIds)
-	bot, err := tgbotapi.NewBotAPI(telegramConfig.ApiToken)
-	if err != nil {
-		log.Panic(err)
-	}
-	for _, chatId := range telegramConfig.ChatIds {
-		msg := tgbotapi.NewMessage(chatId, "**DB backup of "+mysqlConfig.Name+" finished**\nDownload file:\n"+urlStr)
-		_, _ = bot.Send(msg)
-	}
+	tgClient := internal.NewTgClient(telegramConfig)
+	tgClient.SendDbBackupFinishMessage(mysqlConfig.Name, presignLink)
 }
