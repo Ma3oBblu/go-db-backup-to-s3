@@ -40,7 +40,7 @@ func (c *TgClient) initBot() error {
 // SendDbBackupFinishMessage отправка сообщения о завершении бекапа БД
 func (c *TgClient) SendDbBackupFinishMessage(dbName, preSignLink string) {
 	for _, chatId := range c.config.ChatIds {
-		msg := tgbotapi.NewMessage(chatId, "<strong>DB backup of "+dbName+" finished</strong>\nDownload file:\n"+preSignLink)
+		msg := tgbotapi.NewMessage(chatId, "DB backup of "+dbName+" finished\n\nDownload file:\n"+preSignLink)
 		_, _ = c.bot.Send(msg)
 	}
 }
