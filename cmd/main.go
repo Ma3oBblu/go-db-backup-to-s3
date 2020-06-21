@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"compress/gzip"
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -13,10 +14,14 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 )
+
+const openFileOptions int = os.O_CREATE | os.O_RDWR
+const openFilePermissions os.FileMode = 0660
 
 func doExample() {
 	key := os.Getenv("SPACES_KEY")
@@ -82,6 +87,29 @@ func generateBackupDate() string {
 	return strconv.Itoa(dt.Year()) + "-" + dt.Weekday().String()
 }
 
+// gzipFile сжимает файл в архив
+func gzipFile(source, target string) error {
+	reader, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+
+	filename := filepath.Base(source)
+	target = filepath.Join(target, fmt.Sprintf("%s.gz", filename))
+	writer, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+
+	archiver := gzip.NewWriter(writer)
+	archiver.Name = filename
+	defer archiver.Close()
+
+	_, err = io.Copy(archiver, reader)
+	return err
+}
+
 func main() {
 	viper.AddConfigPath("./config/")
 	viper.SetConfigName("config")
@@ -95,10 +123,7 @@ func main() {
 	backupConfig := initBackupConfig()
 
 	backupDate := generateBackupDate()
-	backupPath := backupConfig.Folder
-	backupName := backupConfig.Name
-	backupExt := backupConfig.Extension
-	backupFullPath := backupPath + backupName + "." + backupDate + backupExt
+	backupFullPath := backupConfig.Folder + backupConfig.Name + "." + backupDate + backupConfig.Extension
 	fmt.Println(backupFullPath)
 
 	mysqlDumpExtras := "--ignore-table=" + mysqlDumpConfig.IgnoreTable + " --add-drop-table"
@@ -131,5 +156,9 @@ func main() {
 
 	io.Copy(outfile, stdout)
 
-	fmt.Println("finished")
+	fmt.Println("finish dumping")
+
+	gzipFile(backupFullPath, "/var/www/backups/gzipped")
+
+	fmt.Println("finish gzip")
 }
