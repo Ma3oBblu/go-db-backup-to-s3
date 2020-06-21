@@ -1,3 +1,4 @@
 .idea
 /vendor
 cmd/config/config.yaml
+cmd/config/databases/*.yaml
