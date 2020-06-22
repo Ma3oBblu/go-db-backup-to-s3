@@ -88,7 +88,7 @@ func main() {
 	}
 
 	for _, fileInfo := range fileInfos {
-		if fileInfo.Name() != "db-config-example.yaml" {
+		if fileInfo.Name() != ".gitkeep" {
 			fmt.Println(fileInfo.Name())
 			file := strings.Split(fileInfo.Name(), ".")
 			viper.AddConfigPath("./cmd/config/databases")
