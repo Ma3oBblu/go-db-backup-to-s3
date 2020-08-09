@@ -1,5 +1,7 @@
 # Backup Database to DigitalOcean S3 spaces
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/Ma3oBblu/go-db-backup-to-s3)](https://goreportcard.com/report/github.com/Ma3oBblu/go-db-backup-to-s3)
+
 ### Additional info
 
 - [AWS-SDK](https://docs.aws.amazon.com/sdk-for-go/api/service/s3/)

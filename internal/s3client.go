@@ -14,7 +14,10 @@ import (
 	"time"
 )
 
+// AclPrivate приватный доступ к файлу на S3
 const AclPrivate = "private"
+
+// AclPublic публичный доступ к фалу на S3
 const AclPublic = "public"
 
 // S3Client клиент для работы с S3

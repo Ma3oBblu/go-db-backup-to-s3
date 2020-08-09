@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 )
 
+// GzipExtension расширение для архивного файла
 const GzipExtension = ".gz"
 
 // Gzipper сжимает файлы
